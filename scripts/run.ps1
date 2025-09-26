@@ -8,14 +8,15 @@ $ErrorActionPreference = "Stop"
 
 if ($Action -eq "start") {
     Write-Host "[DEBUG] Starting Whisper WebSocket Server (minimal-fw-mem.py)..."
-    $mainVenvPython = "C:\\Users\\xsvrs\\Desktop\\voice-qa-backend\\.venv\\Scripts\\python.exe"
-    Write-Host "[DEBUG] Checking for venv Python at: $mainVenvPython"
-    if (Test-Path $mainVenvPython) {
-        $python = $mainVenvPython
-        Write-Host "[DEBUG] Using main project venv Python: $python"
+    $parentDir = Split-Path -Parent $PSScriptRoot
+    $projectVenvPython = Join-Path $parentDir ".venv\Scripts\python.exe"
+    Write-Host "[DEBUG] Checking for project venv Python at: $projectVenvPython"
+    if (Test-Path $projectVenvPython) {
+        $python = $projectVenvPython
+        Write-Host "[DEBUG] Using project venv Python: $python"
     } else {
         $python = "python"
-        Write-Host "[DEBUG] Main project venv not found, using system Python."
+        Write-Host "[DEBUG] Project venv not found, using system Python."
     }
     $parentDir = Split-Path -Parent $PSScriptRoot
     $scriptPath = Join-Path $parentDir "minimal-fw-mem.py"
