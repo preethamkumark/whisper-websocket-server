@@ -1,153 +1,125 @@
-# Whisper WebSocket Server Setup Script
-# This script sets up the development environment for the whisper-websocket-server project
+#!/usr/bin/env pwsh
+# Whisper WebSocket Server Setup Script - Basic Version
 
 param(
-    [string]$GitReference = "",  # Optional: branch, tag, or commit to checkout
-    [switch]$SkipVenv = $false,  # Skip virtual environment creation
-    [switch]$Force = $false      # Force recreate virtual environment
+    [switch]$ListVersions = $false,
+    [switch]$ShowCurrentVersion = $false,
+    [string]$GitHubUrl = "https://github.com/preethamkumark/whisper-websocket-server.git"
 )
 
-$ErrorActionPreference = "Stop"
-
-# Color functions for better output
-function Write-Success { param([string]$Message) Write-Host "✅ $Message" -ForegroundColor Green }
-function Write-Info { param([string]$Message) Write-Host "ℹ️  $Message" -ForegroundColor Cyan }
-function Write-Warning { param([string]$Message) Write-Host "⚠️  $Message" -ForegroundColor Yellow }
-function Write-Error { param([string]$Message) Write-Host "❌ $Message" -ForegroundColor Red }
-
-Write-Host "🚀 Whisper WebSocket Server - Setup Script" -ForegroundColor Magenta
-Write-Host "==========================================" -ForegroundColor Magenta
-
-# Get current script directory and project root
-$ScriptDir = $PSScriptRoot
-$ProjectRoot = Split-Path -Parent $ScriptDir
-
-Write-Info "Project root: $ProjectRoot"
-Set-Location $ProjectRoot
-
-# Check if we're in a git repository
-if (-not (Test-Path ".git")) {
-    Write-Error "This doesn't appear to be a git repository. Please run from project root."
-    exit 1
+function Write-ColorHost {
+    param([string]$Message, [string]$Color = "White")
+    switch ($Color) {
+        "Red" { Write-Host $Message -ForegroundColor Red }
+        "Green" { Write-Host $Message -ForegroundColor Green }
+        "Yellow" { Write-Host $Message -ForegroundColor Yellow }
+        "Cyan" { Write-Host $Message -ForegroundColor Cyan }
+        "Magenta" { Write-Host $Message -ForegroundColor Magenta }
+        default { Write-Host $Message -ForegroundColor White }
+    }
 }
 
-# Git version control operations
-if ($GitReference) {
-    Write-Info "Checking out git reference: $GitReference"
+Write-ColorHost "🚀 Whisper WebSocket Server - Setup Script" "Magenta"
+Write-ColorHost "=============================================" "Magenta"
+
+if ($ListVersions) {
+    Write-ColorHost "`n=== Fetching Available Versions ===" "Cyan"
+    
     try {
-        git fetch origin
-        git checkout $GitReference
-        Write-Success "Successfully checked out: $GitReference"
-    }
-    catch {
-        Write-Error "Failed to checkout $GitReference. Error: $($_.Exception.Message)"
-        exit 1
-    }
-}
-
-# Check Python installation
-Write-Info "Checking Python installation..."
-try {
-    $pythonVersion = python --version 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "Python not found in PATH"
-    }
-    Write-Success "Found Python: $pythonVersion"
-    
-    # Check Python version (require 3.8+)
-    $versionMatch = $pythonVersion -match "Python (\d+)\.(\d+)"
-    if ($versionMatch) {
-        $majorVersion = [int]$matches[1]
-        $minorVersion = [int]$matches[2]
-        if ($majorVersion -lt 3 -or ($majorVersion -eq 3 -and $minorVersion -lt 8)) {
-            Write-Error "Python 3.8 or higher is required. Found: $pythonVersion"
-            exit 1
+        Write-ColorHost "Available Branches:" "Green"
+        $branches = git ls-remote --heads $GitHubUrl
+        if ($branches) {
+            $branches | ForEach-Object {
+                if ($_ -match 'refs/heads/(.+)$') {
+                    Write-ColorHost "  - $($matches[1])" "Yellow"
+                }
+            }
         }
-    }
-}
-catch {
-    Write-Error "Python is required but not found. Please install Python 3.8+ first."
-    Write-Info "Download from: https://www.python.org/downloads/"
-    exit 1
-}
-
-# Virtual environment setup
-$venvPath = Join-Path $ProjectRoot ".venv"
-
-if (-not $SkipVenv) {
-    if (Test-Path $venvPath) {
-        if ($Force) {
-            Write-Warning "Removing existing virtual environment..."
-            Remove-Item -Recurse -Force $venvPath
-        }
-        else {
-            Write-Info "Virtual environment already exists at: $venvPath"
-            Write-Info "Use -Force to recreate or -SkipVenv to skip this step"
-        }
-    }
-    
-    if (-not (Test-Path $venvPath)) {
-        Write-Info "Creating virtual environment..."
-        python -m venv $venvPath
-        Write-Success "Virtual environment created at: $venvPath"
-    }
-    
-    # Activate virtual environment
-    $activateScript = Join-Path $venvPath "Scripts\Activate.ps1"
-    if (Test-Path $activateScript) {
-        Write-Info "Activating virtual environment..."
-        & $activateScript
-        Write-Success "Virtual environment activated"
-    }
-}
-
-# Install/upgrade pip
-Write-Info "Upgrading pip..."
-python -m pip install --upgrade pip
-
-# Install project dependencies
-$requirementsFile = Join-Path $ProjectRoot "requirements.txt"
-if (Test-Path $requirementsFile) {
-    Write-Info "Installing project dependencies..."
-    pip install -r $requirementsFile
-    Write-Success "Dependencies installed successfully"
-}
-else {
-    Write-Warning "requirements.txt not found. Skipping dependency installation."
-}
-
-# Verify key dependencies
-Write-Info "Verifying key dependencies..."
-$keyPackages = @("faster-whisper", "websockets", "torch")
-foreach ($package in $keyPackages) {
-    try {
-        $version = pip show $package | Select-String "Version:" | ForEach-Object { $_.ToString().Split(":")[1].Trim() }
-        if ($version) {
-            Write-Success "$package $version installed"
-        }
-        else {
-            Write-Warning "$package not found (may be optional)"
+        
+        Write-ColorHost "`nAvailable Tags:" "Green"
+        $tags = git ls-remote --tags $GitHubUrl
+        if ($tags) {
+            $tags | ForEach-Object {
+                if ($_ -match 'refs/tags/(.+)$') {
+                    $tagName = $matches[1] -replace '\^\{\}', ''
+                    if ($tagName -notlike '*^*') {
+                        Write-ColorHost "  - $tagName" "Yellow"
+                    }
+                }
+            }
         }
     }
     catch {
-        Write-Warning "Could not verify $package installation"
+        Write-ColorHost "Error fetching versions: $_" "Red"
     }
+    
+    exit 0
 }
 
-# Check CUDA availability (optional but recommended)
-Write-Info "Checking CUDA availability..."
-try {
-    python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('CUDA devices:', torch.cuda.device_count() if torch.cuda.is_available() else 0)"
-}
-catch {
-    Write-Warning "Could not check CUDA availability. This is optional but recommended for better performance."
+if ($ShowCurrentVersion) {
+    Write-ColorHost "`n=== Current Version Information ===" "Cyan"
+    
+    if (Test-Path ".git") {
+        try {
+            $branch = git rev-parse --abbrev-ref HEAD 2>$null
+            $commit = git rev-parse --short HEAD 2>$null
+            $lastCommit = git log -1 --pretty=format:"%s" 2>$null
+            
+            Write-ColorHost "Current Branch: $branch" "Yellow"
+            Write-ColorHost "Current Commit: $commit" "Yellow" 
+            Write-ColorHost "Last Commit: $lastCommit" "Yellow"
+            
+            $status = git status --porcelain 2>$null
+            if ($status) {
+                Write-ColorHost "Status: Uncommitted changes present" "Red"
+            } else {
+                Write-ColorHost "Status: Working directory clean" "Green"
+            }
+        }
+        catch {
+            Write-ColorHost "Error getting version info: $_" "Red"
+        }
+    } else {
+        Write-ColorHost "Not a git repository" "Red"
+    }
+    
+    exit 0
 }
 
-Write-Success "Setup completed successfully! 🎉"
-Write-Host ""
-Write-Host "Next steps:" -ForegroundColor Yellow
-Write-Host "1. Run the server: .\scripts\run.ps1 start" -ForegroundColor White
-Write-Host "2. Test with: python test_ws_client.py" -ForegroundColor White
-Write-Host "3. Check README.md for usage instructions" -ForegroundColor White
-Write-Host ""
-Write-Host "Server will be available at: ws://localhost:9001" -ForegroundColor Green
+# Regular setup process
+Write-ColorHost "`n=== Python Environment Check ===" "Cyan"
+
+$pythonCheck = python --version 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Write-ColorHost "✓ Found Python: $pythonCheck" "Green"
+} else {
+    Write-ColorHost "✗ Python not found. Please install Python 3.8+" "Red"
+    exit 1
+}
+
+Write-ColorHost "`n=== Virtual Environment ===" "Cyan"
+
+if (Test-Path ".venv") {
+    Write-ColorHost "✓ Virtual environment already exists" "Green"
+} else {
+    Write-ColorHost "Creating virtual environment..." "Yellow"
+    python -m venv .venv
+    Write-ColorHost "✓ Virtual environment created" "Green"
+}
+
+Write-ColorHost "`n=== Installing Dependencies ===" "Cyan"
+
+if (Test-Path "requirements.txt") {
+    Write-ColorHost "Installing from requirements.txt..." "Yellow"
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt
+    Write-ColorHost "✓ Dependencies installed" "Green"
+} else {
+    Write-ColorHost "⚠ requirements.txt not found" "Yellow"
+}
+
+Write-ColorHost "`n✅ Setup Complete!" "Green"
+Write-ColorHost "`nNext steps:" "Yellow"
+Write-ColorHost "1. Run server: .\scripts\run.ps1 start" "White"
+Write-ColorHost "2. Test client: python test_ws_client.py" "White"
+Write-ColorHost "3. WebSocket URL: ws://localhost:9001" "White"
