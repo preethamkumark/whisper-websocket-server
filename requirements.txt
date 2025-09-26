@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+openai-whisper
+faster_whisper
+httpx
+websockets
+wsocket
